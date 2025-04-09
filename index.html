@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Directory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800">Our Users</h1>
+        <p class="text-gray-500 mt-1">Click on any user to see more details</p>
+      </div>
+      <div class="flex gap-2 w-full sm:w-auto">
+        <div class="relative flex-grow sm:w-64">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="fas fa-search text-gray-400"></i>
+          </div>
+          <input 
+            type="text" 
+            id="searchInput" 
+            class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+            placeholder="Search users..."
+          >
+        </div>
+        <button id="refreshBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg transition-all flex items-center gap-2 shadow-md hover:shadow-lg whitespace-nowrap">
+          <i class="fas fa-sync-alt"></i>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div id="userContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div class="space-y-4">
+        <div class="bg-gray-200 h-48 rounded-lg animate-pulse"></div>
+        <div class="bg-gray-200 h-4 rounded animate-pulse"></div>
+        <div class="bg-gray-200 h-4 rounded animate-pulse w-3/4"></div>
+      </div>
+      <div class="space-y-4 hidden sm:block">
+        <div class="bg-gray-200 h-48 rounded-lg animate-pulse"></div>
+        <div class="bg-gray-200 h-4 rounded animate-pulse"></div>
+        <div class="bg-gray-200 h-4 rounded animate-pulse w-3/4"></div>
+      </div>
+      <div class="space-y-4 hidden lg:block">
+        <div class="bg-gray-200 h-48 rounded-lg animate-pulse"></div>
+        <div class="bg-gray-200 h-4 rounded animate-pulse"></div>
+        <div class="bg-gray-200 h-4 rounded animate-pulse w-3/4"></div>
+      </div>
+    </div>
+
+    <!-- empty-state -->
+    <div id="noResults" class="hidden text-center py-16">
+      <i class="fas fa-user-slash text-4xl text-gray-300 mb-3"></i>
+      <h3 class="text-xl font-medium text-gray-500">No users found</h3>
+      <p class="text-gray-400 mt-1">Try adjusting your search query</p>
+    </div>
+  </div>
+
+  <!-- UserDetails Modal -->
+  <div id="userModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity duration-300">
+    <div class="bg-white rounded-xl shadow-2xl w-11/12 max-w-md p-6 relative transform transition-all duration-300 scale-95 opacity-0">
+      <button id="closeModal" class="absolute top-4 right-4 text-gray-400 hover:text-red-600 text-2xl transition-colors">
+        <i class="fas fa-times"></i>
+      </button>
+      
+      <div class="flex items-center gap-4 mb-5">
+        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold">
+          <span id="modalInitials"></span>
+        </div>
+        <div>
+          <h2 class="text-2xl font-bold text-gray-800" id="modalName"></h2>
+          <p class="text-gray-500" id="modalUsername"></p>
+        </div>
+      </div>
+      
+      <div class="space-y-3 text-gray-700">
+        <div class="flex items-start gap-3">
+          <i class="fas fa-building text-gray-400 mt-1"></i>
+          <p><strong>Company:</strong> <span id="modalCompany"></span></p>
+        </div>
+        <div class="flex items-start gap-3">
+          <i class="fas fa-map-marker-alt text-gray-400 mt-1"></i>
+          <p><strong>Address:</strong> <span id="modalStreet"></span>, <span id="modalCity"></span></p>
+        </div>
+        <div class="flex items-start gap-3">
+          <i class="fas fa-envelope text-gray-400 mt-1"></i>
+          <p><strong>Email:</strong> <span id="modalEmail"></span></p>
+        </div>
+        <div class="flex items-start gap-3">
+          <i class="fas fa-phone text-gray-400 mt-1"></i>
+          <p><strong>Phone:</strong> <span id="modalPhone"></span></p>
+        </div>
+        <div class="flex items-start gap-3">
+          <i class="fas fa-globe text-gray-400 mt-1"></i>
+          <p><strong>Website:</strong> <span id="modalWebsite"></span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // get all the users
+    let allUsers = [];
+  
+    function getInitials(name) {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    }
+
+    // Render users on DOM
+    function renderUsers(users) {
+      if (users.length === 0) {
+        $('#userContainer').addClass('hidden');
+        $('#noResults').removeClass('hidden');
+        return;
+      }
+
+
+      $('#userContainer').removeClass('hidden');
+      $('#noResults').addClass('hidden');
+      $('#userContainer').empty();
+      
+      users.forEach(user => {
+        const card = `
+          <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow cursor-pointer group overflow-hidden relative border border-gray-100" data-user='${JSON.stringify(user)}'>
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div class="relative z-10">
+              <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  ${getInitials(user.name)}
+                </div>
+                <div>
+                  <h3 class="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">${user.name}</h3>
+                  <p class="text-sm text-gray-500">@${user.username.toLowerCase()}</p>
+                </div>
+              </div>
+              <div class="space-y-2 text-sm">
+                <p class="text-gray-600 truncate"><i class="fas fa-envelope text-gray-400 mr-2"></i>${user.email}</p>
+                <p class="text-gray-600"><i class="fas fa-phone text-gray-400 mr-2"></i>${user.phone}</p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-gray-100">
+                <a href="http://${user.website}" target="_blank" class="text-blue-500 hover:text-blue-700 text-sm font-medium inline-flex items-center">
+                  Visit website <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        `;
+        $('#userContainer').append(card);
+      });
+    }
+
+    // Filter users based on search query
+    function filterUsers(query) {
+      if (!query) {
+        renderUsers(allUsers);
+        return;
+      }
+
+      const searchQuery = query.toLowerCase();
+      const filtered = allUsers.filter(user => 
+        user.name.toLowerCase().includes(searchQuery) ||
+        user.email.toLowerCase().includes(searchQuery) ||
+        user.username.toLowerCase().includes(searchQuery) ||
+        user.phone.toLowerCase().includes(searchQuery) ||
+        user.company.name.toLowerCase().includes(searchQuery)
+      );
+      
+      renderUsers(filtered);
+    }
+
+    // Fetch users from API
+    function fetchUsers() {
+      $('#userContainer').html(`
+        <div class="col-span-full flex justify-center py-10">
+          <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      `);
+      $('#noResults').addClass('hidden');
+      
+      $.ajax({
+        url: "https://jsonplaceholder.typicode.com/users",
+        method: "GET",
+        success: function(users) {
+          allUsers = users;
+          renderUsers(users);
+        },
+        error: function() {
+          $('#userContainer').html(`
+            <div class="col-span-full text-center py-10">
+              <i class="fas fa-exclamation-triangle text-4xl text-red-300 mb-3"></i>
+              <p class="text-gray-700 mb-2">Failed to load users</p>
+              <button id="retryBtn" class="text-blue-600 hover:text-blue-800 font-medium">Try again</button>
+            </div>
+          `);
+          
+          $('#retryBtn').click(fetchUsers);
+        }
+      });
+    }
+
+    // When document is ready
+    $(function() {
+      // Initialfetch
+      fetchUsers();
+      $('#refreshBtn').click(fetchUsers);
+      $('#searchInput').on('input', function() {
+        filterUsers($(this).val());
+      });
+      $('#userContainer').on('click', 'div[data-user]', function() {
+        const user = $(this).data('user');
+        
+        //  modal with user data
+        $('#modalInitials').text(getInitials(user.name));
+        $('#modalName').text(user.name);
+        $('#modalUsername').text('@' + user.username.toLowerCase());
+        $('#modalCity').text(user.address.city);
+        $('#modalStreet').text(user.address.street);
+        $('#modalCompany').text(user.company.name);
+        $('#modalEmail').text(user.email);
+        $('#modalPhone').text(user.phone);
+        $('#modalWebsite').html(`<a href="http://${user.website}" target="_blank" class="text-blue-500 hover:underline">${user.website}</a>`);
+        
+        $('#userModal').removeClass('hidden').addClass('flex');
+        setTimeout(() => {
+          $('#userModal .scale-95').removeClass('scale-95 opacity-0').addClass('scale-100 opacity-100');
+        }, 10);
+      });
+
+      // close modal
+      $('#closeModal').click(closeModal);
+      
+      // cose modal if clicked outside
+      $('#userModal').click(function(e) {
+        if (e.target.id === 'userModal') {
+          closeModal();
+        }
+      });
+      
+      // Close modal function
+      function closeModal() {
+        $('#userModal .scale-100').removeClass('scale-100 opacity-100').addClass('scale-95 opacity-0');
+        setTimeout(() => {
+          $('#userModal').addClass('hidden').removeClass('flex');
+        }, 300);
+      }
+      $(document).keyup(function(e) {
+        if (e.key === "Escape" && !$('#userModal').hasClass('hidden')) {
+          closeModal();
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
